@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f4f0">
+  <title>Token Desk | JWT Decoder</title>
+  <script>
+    try {
+      const savedTheme = localStorage.getItem("token-desk-theme");
+      document.documentElement.dataset.theme = savedTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    } catch {
+      document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f3f4f0;
+      --surface: #fff;
+      --ink: #202522;
+      --muted: #6e7771;
+      --line: #dce1da;
+      --soft-line: #e9ece7;
+      --coral: #bd4b36;
+      --coral-wash: #fff0eb;
+      --green: #31745d;
+      --green-wash: #eaf4ee;
+      --blue: #426995;
+      --blue-wash: #edf2f8;
+      --dot: #d9ded7;
+      --button-surface: #fff;
+      --button-text: #4f5952;
+      --button-hover: #f7f9f6;
+      --button-hover-line: #aeb9af;
+      --input-surface: #fbfcfa;
+      --input-text: #3c4740;
+      --body-text: #39433d;
+      --placeholder-text: #a0a8a1;
+      --signature-text: #4a6380;
+      --status-border: #e9d6a3;
+      --status-surface: #fff9e9;
+      --status-text: #725a20;
+      --error-border: #efc5bd;
+      --error-surface: #fff2ef;
+      --error-text: #993c2c;
+      --success-border: #c9e0d1;
+      --success-surface: #eff8f1;
+      --success-text: #356b4e;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: "Segoe UI", "Helvetica Neue", sans-serif;
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --paper: #171c19;
+      --surface: #202722;
+      --ink: #e7ece7;
+      --muted: #a3ada5;
+      --line: #39443d;
+      --soft-line: #303a33;
+      --coral: #f08b73;
+      --coral-wash: #392923;
+      --green: #82c7a1;
+      --green-wash: #24372e;
+      --blue: #9abce2;
+      --blue-wash: #26313f;
+      --dot: #303a33;
+      --button-surface: #252d27;
+      --button-text: #d3dbd4;
+      --button-hover: #303b33;
+      --button-hover-line: #56645a;
+      --input-surface: #191f1b;
+      --input-text: #d7dfd8;
+      --body-text: #d0d8d1;
+      --placeholder-text: #89948b;
+      --signature-text: #a8c5e6;
+      --status-border: #655635;
+      --status-surface: #332d1e;
+      --status-text: #e5ca83;
+      --error-border: #70463e;
+      --error-surface: #352421;
+      --error-text: #f0a293;
+      --success-border: #3f624d;
+      --success-surface: #233229;
+      --success-text: #9fd5b2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background-color: var(--paper);
+      background-image: radial-gradient(var(--dot) 0.65px, transparent 0.65px);
+      background-size: 17px 17px;
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    button, textarea { font: inherit; }
+
+    .shell {
+      width: min(1180px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0 52px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .topbar-tools { display: flex; align-items: center; gap: 18px; }
+
+    .mode-tabs {
+      display: flex;
+      gap: 4px;
+      width: fit-content;
+      margin-top: 23px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--input-surface);
+    }
+
+    .mode-tab {
+      min-height: 34px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .mode-tab[aria-selected="true"] {
+      background: var(--surface);
+      box-shadow: 0 1px 3px rgb(29 43 33 / 12%);
+      color: var(--ink);
+    }
+
+    .mode-tab:focus-visible { outline-offset: 1px; }
+
+    .theme-toggle {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--button-surface);
+      color: var(--button-text);
+      cursor: pointer;
+    }
+
+    .theme-toggle:hover { background: var(--button-hover); }
+    .theme-toggle svg { width: 16px; height: 16px; }
+    .theme-toggle .moon-icon { display: none; }
+    :root[data-theme="dark"] .theme-toggle .sun-icon { display: none; }
+    :root[data-theme="dark"] .theme-toggle .moon-icon { display: block; }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border-radius: 7px;
+      background: var(--ink);
+      color: white;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0;
+    }
+
+    .local-note {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .local-note::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #46886b;
+      content: "";
+    }
+
+    .intro {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 39px 0 25px;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(34px, 5vw, 49px);
+      font-weight: 400;
+      line-height: 1.05;
+    }
+
+    h1 span { color: var(--coral); }
+
+    .intro p {
+      max-width: 330px;
+      margin: 0 0 3px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .workbench {
+      display: grid;
+      grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 2px 7px rgb(29 43 33 / 3%);
+    }
+
+    .panel-head {
+      display: flex;
+      min-height: 54px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--soft-line);
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: 0.065em;
+      text-transform: uppercase;
+    }
+
+    .title-index {
+      color: #8b948d;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .actions { display: flex; gap: 7px; }
+
+    .quiet-button, .copy-button {
+      display: inline-flex;
+      min-height: 30px;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 9px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--button-surface);
+      color: var(--button-text);
+      cursor: pointer;
+      font-size: 11px;
+      transition: background 140ms ease, border-color 140ms ease;
+    }
+
+    .quiet-button:hover, .copy-button:hover {
+      border-color: var(--button-hover-line);
+      background: var(--button-hover);
+    }
+
+    button:focus-visible, textarea:focus-visible {
+      outline: 3px solid rgb(66 105 149 / 30%);
+      outline-offset: 2px;
+    }
+
+    .icon { width: 13px; height: 13px; }
+
+    .editor-body { padding: 15px 16px 16px; }
+
+    .token-input {
+      display: block;
+      width: 100%;
+      min-height: 208px;
+      resize: vertical;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--input-surface);
+      color: var(--input-text);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+      overflow-wrap: anywhere;
+      tab-size: 2;
+    }
+
+    .token-input::placeholder { color: #9ba39d; }
+
+    .input-footer {
+      display: flex;
+      min-height: 39px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .segment-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .count-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #b7beb8;
+    }
+
+    .count-dot.ready { background: #4b9873; }
+
+    .decode-status {
+      display: flex;
+      min-height: 39px;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border: 1px solid var(--status-border);
+      border-radius: 5px;
+      background: var(--status-surface);
+      color: var(--status-text);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .decode-status.error {
+      border-color: var(--error-border);
+      background: var(--error-surface);
+      color: var(--error-text);
+    }
+
+    .decode-status.success {
+      border-color: var(--success-border);
+      background: var(--success-surface);
+      color: var(--success-text);
+    }
+
+    .output-panel { display: grid; gap: 12px; padding: 12px; }
+
+    .output-block {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--soft-line);
+      border-radius: 6px;
+    }
+
+    .output-block.header { --accent: var(--coral); --wash: var(--coral-wash); }
+    .output-block.payload { --accent: var(--green); --wash: var(--green-wash); }
+    .output-block.signature { --accent: var(--blue); --wash: var(--blue-wash); }
+
+    .output-head {
+      display: flex;
+      min-height: 39px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 11px;
+      border-left: 3px solid var(--accent);
+      background: var(--wash);
+    }
+
+    .output-label {
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .output-content {
+      min-height: 91px;
+      max-height: 190px;
+      overflow: auto;
+      padding: 12px;
+      background: var(--button-surface);
+    }
+
+    .output-content pre {
+      margin: 0;
+      color: var(--body-text);
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .workbench[hidden], .base64-workspace[hidden] { display: none; }
+
+    .base64-workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .base64-input { min-height: 208px; }
+
+    .base64-options { display: flex; gap: 3px; }
+
+    .base64-option {
+      min-height: 27px;
+      padding: 0 9px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .base64-option[aria-pressed="true"] {
+      border-color: var(--line);
+      background: var(--button-surface);
+      color: var(--ink);
+    }
+
+    .base64-result {
+      min-height: 208px;
+      max-height: 360px;
+      overflow: auto;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--input-surface);
+    }
+
+    .base64-result pre {
+      margin: 0;
+      color: var(--body-text);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .base64-result .placeholder { color: var(--placeholder-text); font-family: var(--sans); }
+
+    .base64-status {
+      display: flex;
+      min-height: 39px;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 0 12px;
+      border: 1px solid var(--soft-line);
+      border-radius: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .base64-status.error { border-color: var(--error-border); background: var(--error-surface); color: var(--error-text); }
+    .base64-status.success { border-color: var(--success-border); background: var(--success-surface); color: var(--success-text); }
+
+    .output-content .placeholder {
+      color: var(--placeholder-text);
+      font-family: var(--sans);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .signature-text { color: var(--signature-text) !important; }
+
+    .footnote {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 2px 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .footnote strong { color: var(--ink); font-weight: 650; }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 28px, 560px); padding-top: 15px; }
+      .intro { align-items: start; flex-direction: column; gap: 12px; padding-top: 30px; }
+      .intro p { max-width: 430px; }
+      .workbench { grid-template-columns: 1fr; }
+      .token-input { min-height: 155px; }
+      .base64-workspace { grid-template-columns: 1fr; }
+      .base64-input, .base64-result { min-height: 155px; }
+      .footnote { flex-direction: column; gap: 5px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">T.</span> Token Desk</div>
+      <div class="topbar-tools">
+        <div class="local-note">Runs locally in your browser</div>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
+          <svg class="sun-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="3.2" stroke="currentColor" stroke-width="1.4"/><path d="M10 1.8v2m0 12.4v2m8.2-8.2h-2M3.8 10h-2m14-5.8-1.4 1.4M5.6 14.4l-1.4 1.4m11.6 0-1.4-1.4M5.6 5.6 4.2 4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <svg class="moon-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M16.5 12.1A7 7 0 0 1 7.9 3.5 7 7 0 1 0 16.5 12.1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <nav class="mode-tabs" role="tablist" aria-label="Encoding tools">
+      <button class="mode-tab" id="jwt-tab" type="button" role="tab" aria-selected="true" aria-controls="jwt-workspace">JWT</button>
+      <button class="mode-tab" id="base64-tab" type="button" role="tab" aria-selected="false" aria-controls="base64-workspace" tabindex="-1">Base64</button>
+    </nav>
+
+    <section class="intro" aria-labelledby="page-title">
+      <h1 id="page-title">JWT <span>/</span> Decoder</h1>
+      <p>Inspect the parts of a JSON Web Token. Paste a token below to decode its header and payload.</p>
+    </section>
+
+    <div class="workbench" id="jwt-workspace" role="tabpanel" aria-labelledby="jwt-tab" tabindex="0">
+      <section class="panel" aria-labelledby="token-heading">
+        <div class="panel-head">
+          <div class="panel-title" id="token-heading"><span class="title-index">01</span> Encoded token</div>
+          <div class="actions">
+            <button class="quiet-button" id="sample-button" type="button" title="Load a sample JWT">Sample</button>
+            <button class="quiet-button" id="clear-button" type="button" title="Clear token">
+              <svg class="icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 4.5h9m-7.8 0 .5 8h4.6l.5-8M6.3 4.5V3h3.4v1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Clear
+            </button>
+          </div>
+        </div>
+        <div class="editor-body">
+          <textarea class="token-input" id="token-input" aria-label="Encoded JSON Web Token" placeholder="Paste your JWT here..." spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+          <div class="input-footer">
+            <span class="segment-count"><span class="count-dot" id="count-dot"></span><span id="segment-label">Waiting for token</span></span>
+            <span id="character-count">0 characters</span>
+          </div>
+          <div class="decode-status" id="decode-status" role="status" aria-live="polite">
+            <span aria-hidden="true">!</span>
+            <span>Decoding only. This tool does not verify the token signature.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Decoded token parts">
+        <div class="panel-head">
+          <div class="panel-title"><span class="title-index">02</span> Decoded output</div>
+          <button class="quiet-button" id="copy-json-button" type="button" title="Copy decoded header and payload" disabled>
+            <svg class="icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5.3" y="5.3" width="7.7" height="8" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.7 5.2V3.8a1 1 0 0 0-1-1H3.8a1 1 0 0 0-1 1v5.9a1 1 0 0 0 1 1h1.4" stroke="currentColor" stroke-width="1.2"/></svg>
+            Copy JSON
+          </button>
+        </div>
+        <div class="output-panel">
+          <section class="output-block header" aria-labelledby="header-label">
+            <div class="output-head"><span class="output-label" id="header-label">JOSE Header</span><button class="copy-button" data-copy="header" type="button" disabled>Copy</button></div>
+            <div class="output-content"><pre id="header-output" class="placeholder">Decoded header appears here</pre></div>
+          </section>
+          <section class="output-block payload" aria-labelledby="payload-label">
+            <div class="output-head"><span class="output-label" id="payload-label">Payload</span><button class="copy-button" data-copy="payload" type="button" disabled>Copy</button></div>
+            <div class="output-content"><pre id="payload-output" class="placeholder">Decoded payload appears here</pre></div>
+          </section>
+          <section class="output-block signature" aria-labelledby="signature-label">
+            <div class="output-head"><span class="output-label" id="signature-label">Signature</span><button class="copy-button" data-copy="signature" type="button" disabled>Copy</button></div>
+            <div class="output-content"><pre id="signature-output" class="placeholder">Encoded signature appears here</pre></div>
+          </section>
+        </div>
+      </section>
+    </div>
+
+    <div class="base64-workspace" id="base64-workspace" role="tabpanel" aria-labelledby="base64-tab" tabindex="0" hidden>
+      <section class="panel" aria-labelledby="base64-input-heading">
+        <div class="panel-head">
+          <div class="panel-title" id="base64-input-heading"><span class="title-index">01</span> Input text</div>
+          <div class="base64-options" role="group" aria-label="Base64 operation">
+            <button class="base64-option" type="button" data-operation="encode" aria-pressed="true">Encode</button>
+            <button class="base64-option" type="button" data-operation="decode" aria-pressed="false">Decode</button>
+          </div>
+        </div>
+        <div class="editor-body">
+          <textarea class="token-input base64-input" id="base64-input" aria-label="Text to encode or Base64 to decode" placeholder="Type or paste text here..." spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+          <div class="input-footer">
+            <span id="base64-operation-label">UTF-8 text to Base64</span>
+            <span id="base64-character-count">0 characters</span>
+          </div>
+          <div class="actions">
+            <button class="quiet-button" id="base64-clear-button" type="button" title="Clear input and output">
+              <svg class="icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 4.5h9m-7.8 0 .5 8h4.6l.5-8M6.3 4.5V3h3.4v1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Clear
+            </button>
+          </div>
+          <div class="base64-status" id="base64-status" role="status" aria-live="polite">Conversion happens locally in your browser.</div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="base64-output-heading">
+        <div class="panel-head">
+          <div class="panel-title" id="base64-output-heading"><span class="title-index">02</span> Result</div>
+          <button class="quiet-button" id="base64-copy-button" type="button" title="Copy result" disabled>
+            <svg class="icon" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5.3" y="5.3" width="7.7" height="8" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M10.7 5.2V3.8a1 1 0 0 0-1-1H3.8a1 1 0 0 0-1 1v5.9a1 1 0 0 0 1 1h1.4" stroke="currentColor" stroke-width="1.2"/></svg>
+            Copy
+          </button>
+        </div>
+        <div class="editor-body">
+          <div class="base64-result"><pre class="placeholder" id="base64-output">Your result appears here</pre></div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footnote">
+      <span id="footnote-message"><strong>Important:</strong> A decoded token is not necessarily authentic. Always verify the signature separately.</span>
+      <span>No token data is sent anywhere.</span>
+    </footer>
+  </main>
+
+  <script>
+    const tokenInput = document.querySelector("#token-input");
+    const headerOutput = document.querySelector("#header-output");
+    const payloadOutput = document.querySelector("#payload-output");
+    const signatureOutput = document.querySelector("#signature-output");
+    const statusOutput = document.querySelector("#decode-status");
+    const copyJsonButton = document.querySelector("#copy-json-button");
+    const segmentLabel = document.querySelector("#segment-label");
+    const countDot = document.querySelector("#count-dot");
+    const characterCount = document.querySelector("#character-count");
+    const themeToggle = document.querySelector("#theme-toggle");
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    const jwtTab = document.querySelector("#jwt-tab");
+    const base64Tab = document.querySelector("#base64-tab");
+    const jwtWorkspace = document.querySelector("#jwt-workspace");
+    const base64Workspace = document.querySelector("#base64-workspace");
+    const pageTitle = document.querySelector("#page-title");
+    const introText = document.querySelector(".intro p");
+    const footnoteMessage = document.querySelector("#footnote-message");
+    const base64Input = document.querySelector("#base64-input");
+    const base64Output = document.querySelector("#base64-output");
+    const base64Status = document.querySelector("#base64-status");
+    const base64CopyButton = document.querySelector("#base64-copy-button");
+    const base64CharacterCount = document.querySelector("#base64-character-count");
+    const base64OperationLabel = document.querySelector("#base64-operation-label");
+    let base64Operation = "encode";
+    let decoded = null;
+
+    function setTool(mode) {
+      const isBase64 = mode === "base64";
+      jwtTab.setAttribute("aria-selected", String(!isBase64));
+      base64Tab.setAttribute("aria-selected", String(isBase64));
+      jwtTab.tabIndex = isBase64 ? -1 : 0;
+      base64Tab.tabIndex = isBase64 ? 0 : -1;
+      jwtWorkspace.hidden = isBase64;
+      base64Workspace.hidden = !isBase64;
+
+      const titlePrefix = document.createTextNode(isBase64 ? "Base64 " : "JWT ");
+      const separator = document.createElement("span");
+      separator.textContent = "/";
+      pageTitle.replaceChildren(titlePrefix, separator, document.createTextNode(isBase64 ? " Encoder" : " Decoder"));
+      introText.textContent = isBase64
+        ? "Encode UTF-8 text to Base64 or decode Base64 back into readable text."
+        : "Inspect the parts of a JSON Web Token. Paste a token below to decode its header and payload.";
+      document.title = isBase64 ? "Token Desk | Base64 Encoder" : "Token Desk | JWT Decoder";
+
+      const label = document.createElement("strong");
+      label.textContent = isBase64 ? "Note:" : "Important:";
+      footnoteMessage.replaceChildren(label, document.createTextNode(isBase64
+        ? " Base64 is an encoding, not encryption; it does not protect sensitive data."
+        : " A decoded token is not necessarily authentic. Always verify the signature separately."));
+    }
+
+    function setBase64Status(message, state = "") {
+      base64Status.className = `base64-status ${state}`.trim();
+      base64Status.textContent = message;
+    }
+
+    function encodeBase64(text) {
+      const bytes = new TextEncoder().encode(text);
+      let binary = "";
+      for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+      }
+      return btoa(binary);
+    }
+
+    function decodeBase64(text) {
+      const compact = text.replace(/\s/g, "");
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(compact) || compact.length % 4 === 1 || (compact.includes("=") && compact.length % 4 !== 0)) {
+        throw new Error("Enter valid standard Base64 text.");
+      }
+      const padded = compact.padEnd(Math.ceil(compact.length / 4) * 4, "=");
+      const binary = atob(padded);
+      const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+      try {
+        return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      } catch {
+        throw new Error("Decoded bytes are not valid UTF-8 text.");
+      }
+    }
+
+    function convertBase64() {
+      const value = base64Input.value;
+      base64CharacterCount.textContent = `${value.length} ${value.length === 1 ? "character" : "characters"}`;
+      base64OperationLabel.textContent = base64Operation === "encode" ? "UTF-8 text to Base64" : "Base64 to UTF-8 text";
+      if (!value.trim()) {
+        base64Output.textContent = "Your result appears here";
+        base64Output.classList.add("placeholder");
+        base64CopyButton.disabled = true;
+        setBase64Status("Conversion happens locally in your browser.");
+        return;
+      }
+
+      try {
+        const result = base64Operation === "encode" ? encodeBase64(value) : decodeBase64(value);
+        base64Output.textContent = result;
+        base64Output.classList.remove("placeholder");
+        base64CopyButton.disabled = false;
+        setBase64Status(base64Operation === "encode" ? "Text encoded as standard Base64." : "Base64 decoded as UTF-8 text.", "success");
+      } catch (error) {
+        base64Output.textContent = "No result";
+        base64Output.classList.add("placeholder");
+        base64CopyButton.disabled = true;
+        setBase64Status(error.message, "error");
+      }
+    }
+
+    function setTheme(theme, persist = false) {
+      document.documentElement.dataset.theme = theme;
+      const nextLabel = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+      themeToggle.setAttribute("aria-label", nextLabel);
+      themeToggle.title = nextLabel;
+      themeColor.content = theme === "dark" ? "#171c19" : "#f3f4f0";
+      if (persist) {
+        try { localStorage.setItem("token-desk-theme", theme); } catch { /* Storage may be unavailable for local files. */ }
+      }
+    }
+
+    function decodeBase64Url(value) {
+      const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+      const binary = atob(padded);
+      const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    }
+
+    function setOutput(element, value, placeholder = false) {
+      element.textContent = value;
+      element.classList.toggle("placeholder", placeholder);
+    }
+
+    function setStatus(message, state = "") {
+      statusOutput.className = `decode-status ${state}`.trim();
+      statusOutput.replaceChildren();
+      const icon = document.createElement("span");
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = state === "error" ? "!" : state === "success" ? "✓" : "!";
+      const text = document.createElement("span");
+      text.textContent = message;
+      statusOutput.append(icon, text);
+    }
+
+    function setCopyAvailability(available) {
+      document.querySelectorAll("[data-copy]").forEach(button => { button.disabled = !available; });
+      copyJsonButton.disabled = !available;
+    }
+
+    function clearOutputs() {
+      decoded = null;
+      setOutput(headerOutput, "Decoded header appears here", true);
+      setOutput(payloadOutput, "Decoded payload appears here", true);
+      setOutput(signatureOutput, "Encoded signature appears here", true);
+      setCopyAvailability(false);
+    }
+
+    function decodeToken() {
+      const token = tokenInput.value.trim();
+      const parts = token ? token.split(".") : [];
+      characterCount.textContent = `${tokenInput.value.length} ${tokenInput.value.length === 1 ? "character" : "characters"}`;
+      segmentLabel.textContent = token ? `${parts.length} ${parts.length === 1 ? "segment" : "segments"}` : "Waiting for token";
+      countDot.classList.toggle("ready", parts.length === 3 && Boolean(parts[0]) && Boolean(parts[1]));
+
+      if (!token) {
+        clearOutputs();
+        setStatus("Decoding only. This tool does not verify the token signature.");
+        return;
+      }
+
+      if (parts.length !== 3 || !parts[0] || !parts[1]) {
+        clearOutputs();
+        setStatus("A compact JWT must have three non-empty dot-separated segments.", "error");
+        return;
+      }
+
+      try {
+        const header = JSON.parse(decodeBase64Url(parts[0]));
+        const payload = JSON.parse(decodeBase64Url(parts[1]));
+        const signature = parts[2];
+        if (header === null || Array.isArray(header) || typeof header !== "object") {
+          throw new Error("The JOSE header must be a JSON object.");
+        }
+        decoded = { header, payload, signature };
+        setOutput(headerOutput, JSON.stringify(header, null, 2));
+        setOutput(payloadOutput, JSON.stringify(payload, null, 2));
+        setOutput(signatureOutput, signature || "(empty signature)");
+        signatureOutput.classList.add("signature-text");
+        setCopyAvailability(true);
+        setStatus("Decoded successfully. The signature has not been verified.", "success");
+      } catch (error) {
+        clearOutputs();
+        setStatus(error instanceof SyntaxError ? "Header or payload is not valid JSON." : `Unable to decode token: ${error.message}`, "error");
+      }
+    }
+
+    async function copyText(value, button) {
+      try {
+        await navigator.clipboard.writeText(value);
+        const original = button.textContent;
+        button.textContent = "Copied";
+        window.setTimeout(() => { button.textContent = original; }, 1100);
+      } catch {
+        setStatus("Clipboard access is unavailable in this browser context.", "error");
+      }
+    }
+
+    tokenInput.addEventListener("input", decodeToken);
+    jwtTab.addEventListener("click", () => setTool("jwt"));
+    base64Tab.addEventListener("click", () => setTool("base64"));
+    document.querySelectorAll("[role='tab']").forEach((tab, index, tabs) => {
+      tab.addEventListener("keydown", event => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const nextIndex = event.key === "Home" ? 0
+          : event.key === "End" ? tabs.length - 1
+            : (index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length;
+        tabs[nextIndex].focus();
+        tabs[nextIndex].click();
+      });
+    });
+    document.querySelectorAll("[data-operation]").forEach(button => {
+      button.addEventListener("click", () => {
+        base64Operation = button.dataset.operation;
+        document.querySelectorAll("[data-operation]").forEach(option => {
+          option.setAttribute("aria-pressed", String(option === button));
+        });
+        convertBase64();
+      });
+    });
+    base64Input.addEventListener("input", convertBase64);
+    document.querySelector("#base64-clear-button").addEventListener("click", () => {
+      base64Input.value = "";
+      convertBase64();
+      base64Input.focus();
+    });
+    base64CopyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(base64Output.textContent);
+        setBase64Status("Result copied to clipboard.", "success");
+      } catch {
+        setBase64Status("Clipboard access is unavailable in this browser context.", "error");
+      }
+    });
+    themeToggle.addEventListener("click", () => {
+      const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      setTheme(nextTheme, true);
+    });
+    document.querySelector("#clear-button").addEventListener("click", () => {
+      tokenInput.value = "";
+      decodeToken();
+      tokenInput.focus();
+    });
+    document.querySelector("#sample-button").addEventListener("click", () => {
+      tokenInput.value = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkphbmUgRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+      decodeToken();
+    });
+    document.querySelectorAll("[data-copy]").forEach(button => {
+      button.addEventListener("click", () => {
+        if (!decoded) return;
+        const value = button.dataset.copy === "header" ? JSON.stringify(decoded.header, null, 2)
+          : button.dataset.copy === "payload" ? JSON.stringify(decoded.payload, null, 2)
+            : decoded.signature;
+        copyText(value, button);
+      });
+    });
+    copyJsonButton.addEventListener("click", () => {
+      if (decoded) copyText(JSON.stringify({ header: decoded.header, payload: decoded.payload }, null, 2), copyJsonButton);
+    });
+
+    decodeToken();
+  </script>
+</body>
+</html>
